@@ -32,11 +32,11 @@ regras = []
 nomes_erro = ['MN', 'PN', 'ZE', 'PP', 'MP']
 nomes_delta = ['MN', 'PN', 'ZE', 'PP', 'MP']
 saida_map = [
-    ['MA', 'MA', 'A',  'A',  'M'],
-    ['MA', 'A',  'A',  'M',  'M'],
-    ['MA', 'A',  'M',  'P',  'MP'],
-    ['A',  'A',  'M',  'M',  'MP'],
-    ['A',  'M',  'M',  'MP', 'MP']
+    ['MA', 'MA', 'A', 'A', 'M'],
+    ['MA', 'A', 'A', 'M', 'M'],
+    ['MA', 'A', 'M', 'P', 'MP'],
+    ['A', 'A', 'M', 'M', 'MP'],
+    ['A', 'M', 'M', 'MP', 'MP']
 ]
 
 for i, e in enumerate(nomes_erro):
@@ -56,6 +56,7 @@ posicao_atual = 4
 setpoint = 4
 em_execucao = False
 parar_controle = False
+
 
 # Função que simula o controle fuzzy
 def controle_loop():
@@ -108,6 +109,7 @@ def controle_loop():
 
     em_execucao = False
 
+
 # Callback do MQTT
 def on_message(client, userdata, msg):
     global setpoint, posicao_atual, em_execucao, parar_controle
@@ -124,6 +126,7 @@ def on_message(client, userdata, msg):
             client.publish(topic_posicao, round(posicao_atual, 3))
     except Exception as e:
         print("Erro ao processar mensagem:", e)
+
 
 client = mqtt.Client()
 client.connect(broker, 1883, 60)
