@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Elevador Fuzzy</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        button {
+            font-size: 18px;
+            margin: 5px;
+            padding: 10px 20px;
+        }
+
+        #status, #erro {
+            margin-top: 20px;
+            font-size: 20px;
+        }
+
+        .painel {
+            margin: 30px auto;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .andar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .ativo {
+            background-color: green;
+            color: white;
+        }
+
+        .destino {
+            background-color: red;
+            color: white;
+        }
+
+        canvas {
+            max-width: 600px;
+            margin-top: 30px;
+        }
+
+        .erro-mensagem {
+            display: none;
+            width: 400px;
+            background-color: #f44336;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin: 20px auto;
+            font-size: 18px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            transition: opacity 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+<h1>Controle do Elevador</h1>
+
+<p>Escolha o andar de destino:</p>
+<div>
+    <button onclick="enviarDestino(4)">Térreo</button>
+    <button onclick="enviarDestino(7)">1º Andar</button>
+    <button onclick="enviarDestino(10)">2º Andar</button>
+    <button onclick="enviarDestino(13)">3º Andar</button>
+    <button onclick="enviarDestino(16)">4º Andar</button>
+    <button onclick="enviarDestino(19)">5º Andar</button>
+    <button onclick="resetar()" style="background-color:#ddd">Resetar</button>
+</div>
+
+<div class="painel">
+    <div id="led0" class="andar">0</div>
+    <div id="led7" class="andar">1</div>
+    <div id="led10" class="andar">2</div>
+    <div id="led13" class="andar">3</div>
+    <div id="led16" class="andar">4</div>
+    <div id="led19" class="andar">5</div>
+</div>
+
+<div id="status">Posição atual: 4.00 m</div>
+<div id="erro">Erro atual: ---</div>
+
+<!-- Caixa de erro -->
+<div id="erroMensagem" class="erro-mensagem">O elevador já está no andar selecionado.</div>
+
+<canvas id="graficoPosicao"></canvas>
+
+<script>
+    const destinoSelecionado = {valor: null};
+    const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
+
+    const ctx = document.getElementById('graficoPosicao').getContext('2d');
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Posição do Elevador [m]',
+                    data: [4],
+                    fill: false,
+                    borderColor: 'blue',
+                    tension: 0.1
+                },
+                {
+                    label: 'Destino [m]',
+                    data: [],
+                    fill: false,
+                    borderColor: 'red',
+                    borderDash: [10, 5],
+                    tension: 0,
+                    pointRadius: 0
+                }
+            ]
+        },
+        options: {
+            animation: false,
+            scales: {
+                x: {title: {display: true, text: 'Tempo (s)'}},
+                y: {title: {display: true, text: 'Posição (m)'}, min: 0, max: 21}
+            }
+        }
+    });
+
+    let tempo = 0;
+
+    function atualizarPainel(posicao) {
+        const leds = [0, 7, 10, 13, 16, 19];
+        leds.forEach(v => {
+            const el = document.getElementById('led' + v);
+            el.classList.remove('ativo', 'destino');
+            if (Math.abs(posicao - v) < 0.5) el.classList.add('ativo');
+            if (destinoSelecionado.valor === v) el.classList.add('destino');
+        });
+    }
+
+    client.on("connect", () => {
+        console.log("Conectado ao broker MQTT");
+        client.subscribe("elevador/posicao");
+        atualizarPainel(4);
+    });
+
+    client.on("message", (topic, message) => {
+        if (topic === "elevador/posicao") {
+            const pos = parseFloat(message.toString());
+            document.getElementById("status").textContent = `Posição atual: ${pos.toFixed(2)} m`;
+
+            const erro = destinoSelecionado.valor !== null ? (destinoSelecionado.valor - pos).toFixed(2) : '--';
+            document.getElementById("erro").textContent = `Erro atual: ${erro} m`;
+
+            const tempoAtual = (tempo++ * 0.2).toFixed(1);
+            chart.data.labels.push(tempoAtual);
+            chart.data.datasets[0].data.push(pos);
+
+            // Adiciona ponto no destino (reta horizontal)
+            if (destinoSelecionado.valor !== null) {
+                chart.data.datasets[1].data.push(destinoSelecionado.valor);
+            } else {
+                chart.data.datasets[1].data.push(null);
+            }
+
+            chart.update();
+            atualizarPainel(pos);
+        }
+    });
+
+    function enviarDestino(valor) {
+        // Verifica se o elevador já está no andar selecionado
+        if (destinoSelecionado.valor === valor) {
+            exibirMensagemErro();
+            return;
+        }
+
+        destinoSelecionado.valor = valor;
+        client.publish("elevador/destino", valor.toString());
+        tempo = 0;
+
+        chart.data.labels = [];
+        chart.data.datasets[0].data = [];
+        chart.data.datasets[1].data = []; // limpa destino anterior
+    }
+
+    function resetar() {
+        destinoSelecionado.valor = null;
+        client.publish("elevador/resetar", "1");
+
+        document.getElementById("status").textContent = `Posição atual: 4.00 m`;
+        document.getElementById("erro").textContent = `Erro atual: ---`;
+
+        tempo = 0;
+        chart.data.labels = [];
+        chart.data.datasets[0].data = [4];
+        chart.data.datasets[1].data = [];
+        chart.update();
+        atualizarPainel(4);
+    }
+
+    function exibirMensagemErro() {
+        const erroMensagem = document.getElementById("erroMensagem");
+        erroMensagem.style.display = "block";
+
+        setTimeout(() => {
+            erroMensagem.style.display = "none";
+        }, 3000);
+    }
+</script>
+
+</body>
+</html>
