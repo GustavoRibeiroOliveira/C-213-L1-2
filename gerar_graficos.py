@@ -19,16 +19,16 @@ def plot_mf(x, funcs, labels, filename, zoom=None, xlabel="Universo"):
     plt.close()
 
 # Erro e DeltaErro
-x = np.linspace(-32, 33, 10000)
+x = np.linspace(0, 33, 10000)
 erro = [
-    fuzzy.trapmf(x, [-32, -32, -1.2, -0.6]),
-    fuzzy.trimf(x, [-1.2, -0.6, 0]),
-    fuzzy.trimf(x, [-0.6, 0, 0.6]),
-    fuzzy.trimf(x, [0, 0.6, 1.2]),
-    fuzzy.trapmf(x, [0.6, 1.2, 32, 32])
+    fuzzy.trimf(x, [0, 0.3, 0.6]),
+    fuzzy.trimf(x, [0.3, 0.6, 1.2]),
+    fuzzy.trimf(x, [0.6, 1.2, 2.4]),
+    fuzzy.trimf(x, [1.2, 2.4, 3.6]),
+    fuzzy.trapmf(x, [2.4, 3.6, 32, 32])
 ]
-plot_mf(x, erro, ['MN','PN','ZE','PP','MP'], 'erro.png', zoom=[-3, 3], xlabel="Erro (m)")
-plot_mf(x, erro, ['MN','PN','ZE','PP','MP'], 'deltaerro.png', zoom=[-3, 3], xlabel="Delta Erro (m)")
+plot_mf(x, erro, ['ZE','MP','P','M','A'], 'erro.png', zoom=[0, 5], xlabel="Erro (m)")
+plot_mf(x, erro, ['ZE','MP','P','M','A'], 'deltaerro.png', zoom=[0, 5], xlabel="Delta Erro (m)")
 
 # PMotor
 x2 = np.linspace(0, 100, 1000)
