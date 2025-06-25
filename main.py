@@ -4,47 +4,105 @@ import paho.mqtt.client as mqtt
 import skfuzzy as fuzzy
 import skfuzzy.control as ctrl
 import threading
+import pandas as pd
+from tabulate import tabulate
+import re
 
 # === Fuzzy System Setup ===
-Erro = ctrl.Antecedent(np.arange(-36, 36.1, 0.1), 'Erro')
-DeltaErro = ctrl.Antecedent(np.arange(-3, 3.1, 0.1), 'DeltaErro')
-PMotor = ctrl.Consequent(np.arange(0, 101, 1), 'PMotor')
+Erro = ctrl.Antecedent(np.arange(-32, 32.1, 1), 'Erro')
+DeltaErro = ctrl.Antecedent(np.arange(-32, 32.1, 1), 'DeltaErro')
+PMotor = ctrl.Consequent(np.arange(0, 91, 1), 'PMotor')
 
-Erro['MN'] = fuzzy.trapmf(Erro.universe, [-36, -36, -3, -0.4])
-Erro['PN'] = fuzzy.trimf(Erro.universe, [-0.4, -0.2, 0])
-Erro['ZE'] = fuzzy.trimf(Erro.universe, [-0.2, 0, 0.2])
-Erro['PP'] = fuzzy.trimf(Erro.universe, [0, 0.2, 0.4])
-Erro['MP'] = fuzzy.trapmf(Erro.universe, [0.4, 3, 36, 36])
+Erro['MN'] = fuzzy.trapmf(Erro.universe, [-32, -32, -1.2, -0.6])
+Erro['PN'] = fuzzy.trimf(Erro.universe, [-1.2, -0.6, 0])
+Erro['ZE'] = fuzzy.trimf(Erro.universe, [-0.6, 0, 0.6])
+Erro['PP'] = fuzzy.trimf(Erro.universe, [0, 0.6, 1.2])
+Erro['MP'] = fuzzy.trapmf(Erro.universe, [0.6, 1.2, 32, 32])
 
-DeltaErro['MN'] = fuzzy.trapmf(DeltaErro.universe, [-36, -36, -3, -0.4])
-DeltaErro['PN'] = fuzzy.trimf(DeltaErro.universe, [-0.4, -0.2, 0])
-DeltaErro['ZE'] = fuzzy.trimf(DeltaErro.universe, [-0.2, 0, 0.2])
-DeltaErro['PP'] = fuzzy.trimf(DeltaErro.universe, [0, 0.2, 0.4])
-DeltaErro['MP'] = fuzzy.trapmf(DeltaErro.universe, [0.4, 3, 36, 36])
+DeltaErro['MN'] = fuzzy.trapmf(Erro.universe, [-32, -32, -1.2, -0.6])
+DeltaErro['PN'] = fuzzy.trimf(Erro.universe, [-1.2, -0.6, 0])
+DeltaErro['ZE'] = fuzzy.trimf(Erro.universe, [-0.6, 0, 0.6])
+DeltaErro['PP'] = fuzzy.trimf(Erro.universe, [0, 0.6, 1.2])
+DeltaErro['MP'] = fuzzy.trapmf(Erro.universe, [0.6, 1.2, 32, 32])
 
-PMotor['MP'] = fuzzy.trimf(PMotor.universe, [0, 10, 20])
-PMotor['P'] = fuzzy.trimf(PMotor.universe, [10, 20, 30])
-PMotor['M'] = fuzzy.trimf(PMotor.universe, [20, 30, 40])
-PMotor['A'] = fuzzy.trimf(PMotor.universe, [30, 40, 50])
-PMotor['MA'] = fuzzy.trimf(PMotor.universe, [40, 65, 90])
+PMotor['I'] = fuzzy.trimf(PMotor.universe, [0, 15.75, 31.5])
+PMotor['P'] = fuzzy.trimf(PMotor.universe, [15.75, 31.5, 45])
+PMotor['M'] = fuzzy.trimf(PMotor.universe, [31.5, 45, 90])
+PMotor['A'] = fuzzy.trimf(PMotor.universe, [45, 90, 90])
 
-regras = []
-nomes_erro = ['MN', 'PN', 'ZE', 'PP', 'MP']
-nomes_delta = ['MN', 'PN', 'ZE', 'PP', 'MP']
-saida_map = [
-    ['MA', 'MA', 'A', 'A', 'M'],
-    ['MA', 'A', 'A', 'M', 'M'],
-    ['MA', 'A', 'M', 'P', 'MP'],
-    ['A', 'A', 'M', 'M', 'MP'],
-    ['A', 'M', 'M', 'MP', 'MP']
-]
+# regras = []
+# nomes_erro = ['MN', 'PN', 'ZE', 'PP', 'MP']
+# nomes_delta = ['MN', 'PN', 'ZE', 'PP', 'MP']
+# saida_map = [
+#     ['MA', 'MA', 'A', 'A', 'M'],
+#     ['MA', 'A', 'A', 'M', 'M'],
+#     ['MA', 'A', 'M', 'P', 'MP'],
+#     ['A', 'A', 'M', 'M', 'MP'],
+#     ['A', 'M', 'M', 'MP', 'MP']
+# ]
+#
+# for i, e in enumerate(nomes_erro):
+#     for j, d in enumerate(nomes_delta):
+#         s = saida_map[i][j]
+#         regras.append(ctrl.Rule(Erro[e] & DeltaErro[d], PMotor[s]))
 
-for i, e in enumerate(nomes_erro):
-    for j, d in enumerate(nomes_delta):
-        s = saida_map[i][j]
-        regras.append(ctrl.Rule(Erro[e] & DeltaErro[d], PMotor[s]))
+# Definição das regras fuzzy
+R1 = ctrl.Rule(Erro['MN'] & DeltaErro['MN'], PMotor['A'])
+R2 = ctrl.Rule(Erro['PN'] & DeltaErro['MN'], PMotor['A'])
+R3 = ctrl.Rule(Erro['ZE'] & DeltaErro['MN'], PMotor['A'])
+R4 = ctrl.Rule(Erro['PP'] & DeltaErro['MN'], PMotor['M'])
+R5 = ctrl.Rule(Erro['MP'] & DeltaErro['MN'], PMotor['M'])
 
-sistema_ctrl = ctrl.ControlSystem(regras)
+R6 = ctrl.Rule(Erro['MN'] & DeltaErro['PN'], PMotor['A'])
+R7 = ctrl.Rule(Erro['PN'] & DeltaErro['PN'], PMotor['A'])
+R8 = ctrl.Rule(Erro['ZE'] & DeltaErro['PN'], PMotor['M'])
+R9 = ctrl.Rule(Erro['PP'] & DeltaErro['PN'], PMotor['M'])
+R10 = ctrl.Rule(Erro['MP'] & DeltaErro['PN'], PMotor['M'])
+
+R11 = ctrl.Rule(Erro['MN'] & DeltaErro['ZE'], PMotor['A'])
+R12 = ctrl.Rule(Erro['PN'] & DeltaErro['ZE'], PMotor['M'])
+R13 = ctrl.Rule(Erro['ZE'] & DeltaErro['ZE'], PMotor['M'])
+R14 = ctrl.Rule(Erro['PP'] & DeltaErro['ZE'], PMotor['M'])
+R15 = ctrl.Rule(Erro['MP'] & DeltaErro['ZE'], PMotor['P'])
+
+R16 = ctrl.Rule(Erro['MN'] & DeltaErro['PP'], PMotor['M'])
+R17 = ctrl.Rule(Erro['PN'] & DeltaErro['PP'], PMotor['M'])
+R18 = ctrl.Rule(Erro['ZE'] & DeltaErro['PP'], PMotor['M'])
+R19 = ctrl.Rule(Erro['PP'] & DeltaErro['PP'], PMotor['P'])
+R20 = ctrl.Rule(Erro['MP'] & DeltaErro['PP'], PMotor['P'])
+
+R21 = ctrl.Rule(Erro['MN'] & DeltaErro['MP'], PMotor['M'])
+R22 = ctrl.Rule(Erro['PN'] & DeltaErro['MP'], PMotor['M'])
+R23 = ctrl.Rule(Erro['ZE'] & DeltaErro['MP'], PMotor['P'])
+R24 = ctrl.Rule(Erro['PP'] & DeltaErro['MP'], PMotor['P'])
+R25 = ctrl.Rule(Erro['MP'] & DeltaErro['MP'], PMotor['P'])
+
+# Montagem da base de regras
+qtdRegras = len(Erro.terms) * len(DeltaErro.terms)
+BaseRegras = [globals()[f'R{regra}'] for regra in range(1, qtdRegras + 1)]
+
+sistema_ctrl = ctrl.ControlSystem(BaseRegras)
+
+tabela = []
+logicaTabela = 'E'
+for erro in Erro.terms:
+    for deltaErro in DeltaErro.terms:
+        for regra in BaseRegras:
+            antecedente = str(regra).split('IF ')[1].split(' THEN')[0].replace('AND ', '')
+            consequente = str(regra).split('IF ')[1].split(' THEN')[1].split('AND ')[0]
+
+            classificacoes = re.findall(r'\[(.*?)\]', (antecedente + consequente))
+            if erro == classificacoes[0] and deltaErro == classificacoes[1]:
+                tabela.append([classificacoes[0], classificacoes[1], classificacoes[2]])
+                break
+
+# Print da tabela:
+df = pd.DataFrame(tabela, columns=[Erro.label, logicaTabela, PMotor.label])
+pivotTable = pd.DataFrame(
+    df.pivot(index=logicaTabela, columns=Erro.label, values=PMotor.label).reindex(index=DeltaErro.terms,
+                                                                                      columns=Erro.terms))
+pivotTable.index.name = f'{pivotTable.index.name}\033[0m'
+print(tabulate(pivotTable, headers='keys', tablefmt='fancy_grid', stralign='center', showindex='always'))
 
 # MQTT Setup
 broker = 'broker.hivemq.com'
@@ -71,7 +129,6 @@ def controle_loop():
     k1 = 1 if setpoint > posicao_atual else -1
     erro_anterior = posicao_atual - setpoint
 
-    # Rampa inicial
     for i in range(10):
         if parar_controle:
             em_execucao = False
@@ -92,7 +149,7 @@ def controle_loop():
         erro = posicao_atual - setpoint
         delta_erro = erro - erro_anterior
 
-        if abs(erro) <= 0.01:
+        if abs(erro) <= 0.03:
             break
 
         controle.input['Erro'] = erro

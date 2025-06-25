@@ -1,224 +1,271 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Elevador Fuzzy</title>
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Painel do Elevador Fuzzy</title>
+    <script src="mqtt.min.js"></script>
+    <script src="chart.umd.js"></script>
     <style>
         body {
-            font-family: sans-serif;
-            text-align: center;
-            margin-top: 30px;
+            font-family: Arial, sans-serif;
+            background: #f2f2f2;
+            padding: 20px;
         }
 
-        button {
-            font-size: 18px;
-            margin: 5px;
-            padding: 10px 20px;
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
         }
 
-        #status, #erro {
-            margin-top: 20px;
-            font-size: 20px;
-        }
-
-        .painel {
-            margin: 30px auto;
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        .andar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+        .painel-cabine {
             border: 2px solid #333;
-            display: flex;
-            align-items: center;
+            border-radius: 10px;
+            padding: 15px;
+            width: 250px;
+            margin: 0 auto;
+            background-color: #fdfdfd;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .botoes-andar {
+            display: grid;
+            grid-template-columns: repeat(3, 60px);
+            gap: 10px;
             justify-content: center;
-            font-weight: bold;
+            margin-top: 15px;
         }
 
-        .ativo {
-            background-color: green;
-            color: white;
-        }
-
-        .destino {
-            background-color: red;
-            color: white;
-        }
-
-        canvas {
-            max-width: 600px;
-            margin-top: 30px;
-        }
-
-        .erro-mensagem {
-            display: none;
-            width: 400px;
-            background-color: #f44336;
-            color: white;
-            padding: 12px 20px;
-            border-radius: 8px;
-            margin: 20px auto;
+        .botoes-andar button {
+            width: 60px;
+            height: 60px;
             font-size: 18px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-            transition: opacity 0.3s ease;
+            border-radius: 50%;
+            border: 2px solid #444;
+        }
+
+        .tela-display {
+            background-color: black;
+            color: lime;
+            font-size: 22px;
+            text-align: center;
+            padding: 12px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+
+        .graficos-container {
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        canvas, img {
+            max-width: 100%;
+            margin-top: 20px;
+        }
+
+        .metricas {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .metricas span {
+            display: block;
+            margin: 4px 0;
+        }
+
+        .pressionado {
+            background-color: #4caf50;
+            color: white;
+            box-shadow: 0 0 10px #4caf50;
         }
     </style>
 </head>
 <body>
-<h1>Controle do Elevador</h1>
+<div class="container">
+    <h1>Painel do Elevador - Fuzzy PD</h1>
 
-<p>Escolha o andar de destino:</p>
-<div>
-    <button onclick="enviarDestino(4)">Térreo</button>
-    <button onclick="enviarDestino(7)">1º Andar</button>
-    <button onclick="enviarDestino(10)">2º Andar</button>
-    <button onclick="enviarDestino(13)">3º Andar</button>
-    <button onclick="enviarDestino(16)">4º Andar</button>
-    <button onclick="enviarDestino(19)">5º Andar</button>
-    <button onclick="resetar()" style="background-color:#ddd">Resetar</button>
+    <div class="painel-cabine">
+        <strong>VILLARTA elevadores</strong>
+        <div>CAPACIDADE 975kg<br>13 PASSAGEIROS</div>
+        <div class="botoes-andar">
+            <button data-valor="4" onclick="enviarDestino(4)">T</button>
+            <button data-valor="7" onclick="enviarDestino(7)">1</button>
+            <button data-valor="10" onclick="enviarDestino(10)">2</button>
+            <button data-valor="13" onclick="enviarDestino(13)">3</button>
+            <button data-valor="16" onclick="enviarDestino(16)">4</button>
+            <button data-valor="19" onclick="enviarDestino(19)">5</button>
+            <button data-valor="22" onclick="enviarDestino(22)">6</button>
+            <button data-valor="25" onclick="enviarDestino(25)">7</button>
+            <button data-valor="28" onclick="enviarDestino(28)">8</button>
+            <button onclick="resetar()">R</button>
+        </div>
+        <div class="tela-display" id="displayElevador">Térreo •</div>
+    </div>
+
+    <div id="mensagem-erro"></div>
+
+    <div class="graficos-container">
+        <canvas id="graficoPosicao"></canvas>
+        <div class="metricas" id="metricas"></div>
+
+        <h3>Funções de Pertinência</h3>
+        <img src="erro.png" alt="Função Erro">
+        <img src="deltaerro.png" alt="Função DeltaErro">
+        <img src="pmotor.png" alt="Função PMotor">
+    </div>
 </div>
-
-<div class="painel">
-    <div id="led0" class="andar">0</div>
-    <div id="led7" class="andar">1</div>
-    <div id="led10" class="andar">2</div>
-    <div id="led13" class="andar">3</div>
-    <div id="led16" class="andar">4</div>
-    <div id="led19" class="andar">5</div>
-</div>
-
-<div id="status">Posição atual: 4.00 m</div>
-<div id="erro">Erro atual: ---</div>
-
-<!-- Caixa de erro -->
-<div id="erroMensagem" class="erro-mensagem">O elevador já está no andar selecionado.</div>
-
-<canvas id="graficoPosicao"></canvas>
 
 <script>
     const destinoSelecionado = {valor: null};
     const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
 
-    const ctx = document.getElementById('graficoPosicao').getContext('2d');
-    const chart = new Chart(ctx, {
+    const ctx = document.getElementById("graficoPosicao").getContext("2d");
+    const grafico = new Chart(ctx, {
         type: 'line',
         data: {
             labels: [],
             datasets: [
-                {
-                    label: 'Posição do Elevador [m]',
-                    data: [4],
-                    fill: false,
-                    borderColor: 'blue',
-                    tension: 0.1
-                },
-                {
-                    label: 'Destino [m]',
-                    data: [],
-                    fill: false,
-                    borderColor: 'red',
-                    borderDash: [10, 5],
-                    tension: 0,
-                    pointRadius: 0
-                }
+                {label: 'Posição [m]', data: [4], borderColor: 'blue', tension: 0.2, fill: false},
+                {label: 'Destino [m]', data: [], borderColor: 'red', borderDash: [5, 5], pointRadius: 0, fill: false}
             ]
         },
         options: {
-            animation: false,
             scales: {
-                x: {title: {display: true, text: 'Tempo (s)'}},
-                y: {title: {display: true, text: 'Posição (m)'}, min: 0, max: 21}
+                x: {title: {display: true, text: 'Tempo [s]'}},
+                y: {title: {display: true, text: 'Posição [m]'}, min: 0, max: 30}
             }
         }
     });
 
-    let tempo = 0;
-
-    function atualizarPainel(posicao) {
-        const leds = [0, 7, 10, 13, 16, 19];
-        leds.forEach(v => {
-            const el = document.getElementById('led' + v);
-            el.classList.remove('ativo', 'destino');
-            if (Math.abs(posicao - v) < 0.5) el.classList.add('ativo');
-            if (destinoSelecionado.valor === v) el.classList.add('destino');
-        });
-    }
+    const metricas = document.getElementById("metricas");
+    let tempo = 0, ultimaPosicao = 4;
+    let botaoAtual = null;
 
     client.on("connect", () => {
-        console.log("Conectado ao broker MQTT");
         client.subscribe("elevador/posicao");
-        atualizarPainel(4);
+        atualizarDisplay(4, 0);
     });
 
     client.on("message", (topic, message) => {
         if (topic === "elevador/posicao") {
             const pos = parseFloat(message.toString());
-            document.getElementById("status").textContent = `Posição atual: ${pos.toFixed(2)} m`;
-
-            const erro = destinoSelecionado.valor !== null ? (destinoSelecionado.valor - pos).toFixed(2) : '--';
-            document.getElementById("erro").textContent = `Erro atual: ${erro} m`;
-
+            const erro = destinoSelecionado.valor !== null ? destinoSelecionado.valor - pos : 0;
             const tempoAtual = (tempo++ * 0.2).toFixed(1);
-            chart.data.labels.push(tempoAtual);
-            chart.data.datasets[0].data.push(pos);
 
-            // Adiciona ponto no destino (reta horizontal)
-            if (destinoSelecionado.valor !== null) {
-                chart.data.datasets[1].data.push(destinoSelecionado.valor);
-            } else {
-                chart.data.datasets[1].data.push(null);
+            grafico.data.labels.push(tempoAtual);
+            grafico.data.datasets[0].data.push(pos);
+            grafico.data.datasets[1].data.push(destinoSelecionado.valor);
+            grafico.update();
+
+            const delta = pos - ultimaPosicao;
+            atualizarDisplay(pos, delta);
+            ultimaPosicao = pos;
+
+            // Se chegou ao destino, libera botão
+            if (destinoSelecionado.valor !== null && Math.abs(pos - destinoSelecionado.valor) < 0.05) {
+                if (botaoAtual) {
+                    botaoAtual.classList.remove("pressionado");
+                    botaoAtual = null;
+                }
             }
 
-            chart.update();
-            atualizarPainel(pos);
+            const pico = Math.max(...grafico.data.datasets[0].data);
+            const alturaFinal = pos;
+            const erro_mm = (destinoSelecionado.valor - pos) * 1000;
+            const tempoMov = tempoAtual;
+            const overshoot = ((pico - destinoSelecionado.valor) / destinoSelecionado.valor * 100).toFixed(4);
+
+            metricas.innerHTML = `
+        <span><strong>Altura Final:</strong> ${alturaFinal.toFixed(4)} m</span>
+        <span><strong>Erro:</strong> ${erro_mm.toFixed(4)} mm</span>
+        <span><strong>Pico:</strong> ${pico.toFixed(3)} m (${overshoot}%)</span>
+        <span><strong>Tempo de Movimento:</strong> ${tempoMov} s</span>
+      `;
         }
     });
 
     function enviarDestino(valor) {
-        // Verifica se o elevador já está no andar selecionado
-        if (destinoSelecionado.valor === valor) {
-            exibirMensagemErro();
+        const posAtual = grafico.data.datasets[0].data.at(-1);
+        if (Math.abs(posAtual - valor) < 1) {
+            exibirErro("O elevador já está no andar selecionado.");
             return;
         }
 
         destinoSelecionado.valor = valor;
         client.publish("elevador/destino", valor.toString());
-        tempo = 0;
 
-        chart.data.labels = [];
-        chart.data.datasets[0].data = [];
-        chart.data.datasets[1].data = []; // limpa destino anterior
+        tempo = 0;
+        grafico.data.labels = [];
+        grafico.data.datasets[0].data = [];
+        grafico.data.datasets[1].data = [];
+        grafico.update();
+        metricas.innerHTML = '';
+
+        // Marca botão pressionado
+        if (botaoAtual) botaoAtual.classList.remove("pressionado");
+        botaoAtual = document.querySelector(`button[data-valor="${valor}"]`);
+        if (botaoAtual) botaoAtual.classList.add("pressionado");
     }
 
     function resetar() {
         destinoSelecionado.valor = null;
         client.publish("elevador/resetar", "1");
 
-        document.getElementById("status").textContent = `Posição atual: 4.00 m`;
-        document.getElementById("erro").textContent = `Erro atual: ---`;
-
         tempo = 0;
-        chart.data.labels = [];
-        chart.data.datasets[0].data = [4];
-        chart.data.datasets[1].data = [];
-        chart.update();
-        atualizarPainel(4);
+        grafico.data.labels = [];
+        grafico.data.datasets[0].data = [4];
+        grafico.data.datasets[1].data = [];
+        grafico.update();
+        metricas.innerHTML = '';
+        atualizarDisplay(4, 0);
+
+        if (botaoAtual) botaoAtual.classList.remove("pressionado");
+        botaoAtual = null;
     }
 
-    function exibirMensagemErro() {
-        const erroMensagem = document.getElementById("erroMensagem");
-        erroMensagem.style.display = "block";
+function atualizarDisplay(pos, delta) {
+    const map = {4: 'T', 7: '1', 10: '2', 13: '3', 16: '4', 19: '5', 22: '6', 25: '7', 28: '8'};
+    let andar = Object.entries(map).reduce((acc, [m, nome]) => Math.abs(pos - m) < 1.5 ? nome : acc, '?');
 
+    // calcula se o elevador chegou ao destino (tolerância de 0.05 m)
+    const chegou = destinoSelecionado.valor !== null && Math.abs(pos - destinoSelecionado.valor) < 0.05;
+    let direcao;
+
+    if (chegou || destinoSelecionado.valor === null) {
+        direcao = '';  // sem seta quando parado ou resetado
+    } else {
+        direcao = delta > 0.01 ? '↑' : delta < -0.01 ? '↓' : '•';
+    }
+
+    document.getElementById("displayElevador").textContent = `Andar ${andar} ${direcao}`;
+}
+
+
+    function exibirErro(msg) {
+        const box = document.createElement("div");
+        box.textContent = msg;
+        box.style.cssText = `
+        background: #f44336;
+        color: white;
+        padding: 10px;
+        border-radius: 6px;
+        margin: 10px auto;
+        max-width: 400px;
+        text-align: center;
+        font-weight: bold;
+    `;
+        const containerErro = document.getElementById("mensagem-erro");
+        containerErro.innerHTML = "";
+        containerErro.appendChild(box);
         setTimeout(() => {
-            erroMensagem.style.display = "none";
+            box.remove();
         }, 3000);
     }
+
 </script>
 
 </body>
