@@ -149,7 +149,7 @@ def controle_loop():
         erro = abs(posicao_atual - setpoint)
         delta_erro = abs(erro - erro_anterior)
 
-        if erro <= 0.03:
+        if erro <= 0.02:
             em_execucao = False
             return
 

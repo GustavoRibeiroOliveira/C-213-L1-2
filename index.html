@@ -82,25 +82,36 @@
             color: white;
             box-shadow: 0 0 10px #4caf50;
         }
+
+        h1 {
+            text-align: center;
+        }
+
+        .info-cabine {
+            text-align: center;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>Painel do Elevador - Fuzzy PD</h1>
+    <h1>Painel do Elevador</h1>
 
     <div class="painel-cabine">
-        <strong>VILLARTA elevadores</strong>
-        <div>CAPACIDADE 975kg<br>13 PASSAGEIROS</div>
+        <div class="info-cabine">
+            <strong>VILLARTA elevadores</strong><br>
+            CAPACIDADE 975kg<br>13 PASSAGEIROS
+        </div>
         <div class="botoes-andar">
             <button data-valor="4" onclick="enviarDestino(4)">T</button>
-            <button data-valor="7" onclick="enviarDestino(7)">1</button>
-            <button data-valor="10" onclick="enviarDestino(10)">2</button>
-            <button data-valor="13" onclick="enviarDestino(13)">3</button>
-            <button data-valor="16" onclick="enviarDestino(16)">4</button>
-            <button data-valor="19" onclick="enviarDestino(19)">5</button>
-            <button data-valor="22" onclick="enviarDestino(22)">6</button>
-            <button data-valor="25" onclick="enviarDestino(25)">7</button>
-            <button data-valor="28" onclick="enviarDestino(28)">8</button>
+            <button data-valor="8" onclick="enviarDestino(8)">1</button>
+            <button data-valor="11" onclick="enviarDestino(11)">2</button>
+            <button data-valor="14" onclick="enviarDestino(14)">3</button>
+            <button data-valor="17" onclick="enviarDestino(17)">4</button>
+            <button data-valor="20" onclick="enviarDestino(20)">5</button>
+            <button data-valor="23" onclick="enviarDestino(23)">6</button>
+            <button data-valor="26" onclick="enviarDestino(26)">7</button>
+            <button data-valor="29" onclick="enviarDestino(29)">8</button>
             <button onclick="resetar()">R</button>
         </div>
         <div class="tela-display" id="displayElevador">Térreo •</div>
@@ -227,22 +238,22 @@
         botaoAtual = null;
     }
 
-function atualizarDisplay(pos, delta) {
-    const map = {4: 'T', 7: '1', 10: '2', 13: '3', 16: '4', 19: '5', 22: '6', 25: '7', 28: '8'};
-    let andar = Object.entries(map).reduce((acc, [m, nome]) => Math.abs(pos - m) < 1.5 ? nome : acc, '?');
+    function atualizarDisplay(pos, delta) {
+        const map = {4: 'T', 7: '1', 10: '2', 13: '3', 16: '4', 19: '5', 22: '6', 25: '7', 28: '8'};
+        let andar = Object.entries(map).reduce((acc, [m, nome]) => Math.abs(pos - m) < 1.5 ? nome : acc, '?');
 
-    // calcula se o elevador chegou ao destino (tolerância de 0.05 m)
-    const chegou = destinoSelecionado.valor !== null && Math.abs(pos - destinoSelecionado.valor) < 0.05;
-    let direcao;
+        // calcula se o elevador chegou ao destino (tolerância de 0.05 m)
+        const chegou = destinoSelecionado.valor !== null && Math.abs(pos - destinoSelecionado.valor) < 0.05;
+        let direcao;
 
-    if (chegou || destinoSelecionado.valor === null) {
-        direcao = '';  // sem seta quando parado ou resetado
-    } else {
-        direcao = delta > 0.01 ? '↑' : delta < -0.01 ? '↓' : '•';
+        if (chegou || destinoSelecionado.valor === null) {
+            direcao = '';  // sem seta quando parado ou resetado
+        } else {
+            direcao = delta > 0.01 ? '↑' : delta < -0.01 ? '↓' : '•';
+        }
+
+        document.getElementById("displayElevador").textContent = `Andar ${andar} ${direcao}`;
     }
-
-    document.getElementById("displayElevador").textContent = `Andar ${andar} ${direcao}`;
-}
 
 
     function exibirErro(msg) {
