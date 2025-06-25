@@ -156,16 +156,7 @@ def controle_loop():
         controle.input['Erro'] = erro
         controle.input['DeltaErro'] = delta_erro
         controle.compute()
-        try:
-            potencia = controle.output['PMotor'] / 100
-        except KeyError:
-            print("Erro ao acessar PMotor. Verifique as entradas e regras.")
-            print("Entradas:")
-            print(f"Erro = {erro}, DeltaErro = {delta_erro}")
-            print(f"posicao_atual = {posicao_atual}")
-            print(f"setpoint = {setpoint}")
-            print("Saídas disponíveis:", controle.output)
-            return
+        potencia = controle.output['PMotor'] / 100
 
         posicao_atual = abs(k1 * posicao_atual * 0.9995 + potencia * 0.212312)
         client.publish(topic_posicao, round(posicao_atual, 3))
